@@ -11,8 +11,6 @@ import json
 import os
 import shutil
 import time
-import requests
-from tqdm import tqdm
 from urllib.parse import urlparse
 from pyrogram import enums
 from datetime import datetime
