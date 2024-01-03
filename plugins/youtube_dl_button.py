@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import time
+import requests
 from urllib.parse import urlparse
 from pyrogram import enums
 from datetime import datetime
@@ -19,7 +20,7 @@ from Script import script
 from plugins.rlazy_thumbnail import *
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
 from pyrogram.types import InputMediaPhoto
-from database.lazy_utils import progress_for_pyrogram, progress_for_pyrogram2, humanbytes
+from database.lazy_utils import progress_for_pyrogram, humanbytes
 from database.users_chats_db import db
 from lazybot.ran_text import random_char
 
@@ -32,11 +33,10 @@ async def youtube_dl_call_back(client, query):
     # youtube_dl extractors
     lzmsg = query.message.reply_to_message  # msg will be callback query
     message_idx = lzmsg.id #getting id
-    print(f"{message_idx}")
     tg_send_type, youtube_dl_format, youtube_dl_ext, ranom = cb_data.split("|")
     print(cb_data)
     random1 = random_char(5)
-
+    
     save_ytdl_json_path = DOWNLOAD_LOCATION + \
         "/" + str(query.from_user.id) + f'{ranom}' + ".json"
     try:
@@ -49,7 +49,6 @@ async def youtube_dl_call_back(client, query):
             revoke=True
         )
         return False
-
     youtube_dl_url = query.message.reply_to_message.text
     custom_file_name = str(response_json.get("title")) + \
         "_" + youtube_dl_format + "." + youtube_dl_ext
@@ -92,23 +91,9 @@ async def youtube_dl_call_back(client, query):
                 o = entity.offset
                 l = entity.length
                 youtube_dl_url = youtube_dl_url[o:o + l]
-    
-    try:
-        xLAZY_BAAPUx_p = urlparse(youtube_dl_url).path
-        xLAZY_BAAPUx_name = os.path.basename(xLAZY_BAAPUx_p)
-        xLAZY_BAAPUx_init = await query.edit_message_text(
-                text=f"ღ♡ running ʟᴀᴢʏ ᴄᴏɴꜱᴛʀᴜᴄᴛɪᴏɴ ♡♪**\n\n{xLAZY_BAAPUx_name}\n\n - 𝙴𝚗𝚓𝚘𝚢 𝚜𝚞𝚙𝚎𝚛𝚏𝚊𝚜𝚝 𝚍𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝚋𝚢 @LazyDeveloperr ◔_◔ ",
-            )
-    except Exception as e:
-        await xLAZY_BAAPUx_init.edit(e)
-        return
-    
-    try:
-        lazy_sticker = await query.message.reply_sticker(sticker=random.choice(lazystickerset))
-    except Exception as e:
-        await print(e)
-        pass
-    
+    await query.edit_message_text(
+        text=script.DOWNLOAD_START
+    )
     description = script.CUSTOM_CAPTION_UL_FILE
     if "fulltitle" in response_json:
         description = response_json["fulltitle"][0:1021]
@@ -163,7 +148,6 @@ async def youtube_dl_call_back(client, query):
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-
     # Wait for the subprocess to finish
     stdout, stderr = await process.communicate()
     e_response = stderr.decode().strip()
@@ -171,7 +155,6 @@ async def youtube_dl_call_back(client, query):
     logger.info(e_response)
     logger.info(t_response)
     ad_string_to_replace = "please report this issue on https://yt-dl.org/bug . Make sure you are using the latest version; see  https://yt-dl.org/update  on how to update. Be sure to call youtube-dl with the --verbose flag and include its complete output."
-    
     if e_response and ad_string_to_replace in e_response:
         error_message = e_response.replace(ad_string_to_replace, "")
         await query.edit_message_text(
@@ -185,17 +168,14 @@ async def youtube_dl_call_back(client, query):
             os.remove(save_ytdl_json_path)
         except FileNotFoundError as exc:
             pass
-
+        
         end_one = datetime.now()
         time_taken_for_download = (end_one -start).seconds
         file_size = TG_MAX_FILE_SIZE + 1
         try:
             file_size = os.stat(download_directory).st_size
-            download_directory = os.path.splitext(download_directory)[0] + "." + "mkv"
-            logger.info(download_directory)
         except FileNotFoundError as exc:
             download_directory = os.path.splitext(download_directory)[0] + "." + "mkv"
-            logger.info(download_directory)
             # https://stackoverflow.com/a/678242/4723940
             file_size = os.stat(download_directory).st_size
         if file_size > TG_MAX_FILE_SIZE:
@@ -208,30 +188,24 @@ async def youtube_dl_call_back(client, query):
                 download_directory,
                 tmp_directory_for_each_user,
                 is_w_f,
-                DEF_WATER_MARK_FILE,
+                Config.DEF_WATER_MARK_FILE,
                 300,
                 9
             )
             logger.info(images)'''
             await query.edit_message_text(
-                text="**initiating Lazy Upload** ⚡",
+                text=script.UPLOAD_START,
             )
 
+            # ref: message from 
             start_time = time.time()
             if (await db.get_upload_as_doc(query.from_user.id)) is False:
                 thumbnail = await Gthumb01(client, query)
-                await lazy_sticker.delete()
-                caption = custom_file_name
-                try:
-                    lazy_sticker01 = await query.message.reply_sticker(sticker=random.choice(lazystickerset))
-                except Exception as e:
-                    await client.send_message(chat_id = query.message.chat.id, text=f"🥳")
-                    pass
                 await client.send_document(
                     chat_id=query.message.chat.id,
                     document=download_directory,
                     thumb=thumbnail,
-                    caption=caption,
+                    caption=description,
                     reply_to_message_id=message_idx,
                     progress=progress_for_pyrogram,
                     progress_args=(
@@ -240,21 +214,13 @@ async def youtube_dl_call_back(client, query):
                         start_time
                     )
                 )
-                await lazy_sticker01.delete()
             else:
                  width, height, duration = await Mdata01(download_directory)
                  thumb_image_path = await Gthumb02(client, query, duration, download_directory)
-                 await lazy_sticker.delete()
-                 caption = custom_file_name
-                 try:
-                     lazy_sticker02 = await query.message.reply_sticker(sticker=random.choice(lazystickerset))
-                 except Exception as e:
-                     await client.send_message(chat_id = query.message.chat.id, text=f"🥳")
-                     pass
                  await client.send_video(
                     chat_id=query.message.chat.id,
                     video=download_directory,
-                    caption=caption,
+                    caption=description,
                     duration=duration,
                     width=width,
                     height=height,
@@ -268,18 +234,9 @@ async def youtube_dl_call_back(client, query):
                         start_time
                     )
                 )
-                 await lazy_sticker02.delete()
-
             if tg_send_type == "audio":
                 duration = await Mdata03(download_directory)
                 thumbnail = await Gthumb01(client, query)
-                await lazy_sticker.delete()
-                caption = custom_file_name
-                try:
-                    lazy_sticker03 = await query.message.reply_sticker(sticker=random.choice(lazystickerset))
-                except Exception as e:
-                    await client.send_message(chat_id = query.message.chat.id, text=f"🥳")
-                    pass
                 await client.send_audio(
                     chat_id=query.message.chat.id,
                     audio=download_directory,
@@ -295,25 +252,16 @@ async def youtube_dl_call_back(client, query):
                         start_time
                     )
                 )
-                await lazy_sticker03.delete()
-
             elif tg_send_type == "vm":
                 width, duration = await Mdata02(download_directory)
                 thumbnail = await Gthumb02(client, query, duration, download_directory)
-                await lazy_sticker.delete()
-                caption = custom_file_name
-                try:
-                    lazy_sticker04 = await query.message.reply_sticker(sticker=random.choice(lazystickerset))
-                except Exception as e:
-                    await client.send_message(chat_id = query.message.chat.id, text=f"🥳")
-                    pass
                 await client.send_video_note(
                     chat_id=query.message.chat.id,
                     video_note=download_directory,
                     duration=duration,
                     length=width,
                     thumb=thumbnail,
-                    reply_to_message_id=query.message.reply_to_message.message_id,
+                    reply_to_message_id=message_idx,
                     progress=progress_for_pyrogram,
                     progress_args=(
                         script.UPLOAD_START,
@@ -321,7 +269,6 @@ async def youtube_dl_call_back(client, query):
                         start_time
                     )
                 )
-                await lazy_sticker04.delete()
             else:
                 logger.info("Did this happen? :\\")
             end_two = datetime.now()
@@ -331,7 +278,7 @@ async def youtube_dl_call_back(client, query):
                 os.remove(thumbnail)
             except:
                 pass
-            await query.edit_message_text(
+            await client.edit_message_text(
                 text=script.AFTER_SUCCESSFUL_UPLOAD_MSG_WITH_TS.format(time_taken_for_download, time_taken_for_upload),
                 disable_web_page_preview=True
             )
